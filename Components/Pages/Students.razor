@@ -1,0 +1,53 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject StudentDataAccess StudentData
+
+<PageTitle>Students</PageTitle>
+<PageHeader Title="Students">
+  <NavLink class="btn btn-light" href="/new-student">
+    &plus;
+  </NavLink>
+</PageHeader>
+
+<table class="table table-striped bg-white border border-1">
+  <thead>
+    <tr>
+      <th class="border-0">Id</th>
+      <th class="border-0">First Name</th>
+      <th class="border-0">Last Name</th>
+      <th class="border-0">Type</th>
+      <th class="border-0">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    @foreach (var student in students) 
+    {
+      <tr>
+        <td>@student.Id</td>
+        <td>@student.FirstName</td>
+        <td>@student.LastName</td>
+        <td>@student.Type</td>
+        
+        <td class="d-flex align-items-center">
+          <NavLink class="text-decoration-none" href="@("/register/" + student.Id)">
+            Register
+          </NavLink>
+          @* <button type="submit" class="btn btn-link text-danger text-decoration-none" @onclick="async () => { await DeleteStudent(student.Id); }">Delete</button> *@
+        </td>
+      </tr>
+    }
+  </tbody>
+</table>
+
+@code {
+  List<Student> students = [];  
+  protected override async Task OnInitializedAsync()
+  {
+    students = await StudentData.GetAll();
+  }
+  private async Task DeleteStudent(int id)
+  {
+    await StudentData.Delete(id);
+    students = await StudentData.GetAll();
+  }
+}

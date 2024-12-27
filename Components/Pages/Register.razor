@@ -1,0 +1,148 @@
+﻿@page "/register/{StudentId:int}"
+@rendermode InteractiveServer
+@inject NavigationManager Navigator
+@inject StudentDataAccess StudentData
+@inject CourseDataAccess CourseData
+@inject RegistrationDataAccess RegistrationData
+
+<PageTitle>Register Student</PageTitle>
+
+<PageHeader Title="Register Student"></PageHeader>
+
+<EditForm method="post" Model="registrationModel" FormName="RegistrationForm" class="bg-light p-5 border border-1" OnValidSubmit="async () => { await HandleSubmit(); }">
+  <CustomValidation @ref="customValidation" />
+  <div class="form-group mb-5">
+    <h2>@student?.FirstName @student?.LastName - @student?.Id</h2>
+  </div>
+  <div class="form-group mb-5">
+    <label for="course" class="form-label">The following courses are currently avaiable for registration:</label>
+    <ValidationMessage class="alert alert-danger text-danger-emphasis my-3" For="() => registrationModel.Courses" />
+    @if (registrationSuccess)
+    {
+      <div class="alert alert-info">@successMessage</div>
+    }
+    @foreach (var course in registrationModel.Courses)
+    {
+      <div class="form-group mb-2">
+        <InputCheckbox 
+            type="checkbox" 
+            class="form-check-input me-2" 
+            id="@course.Value" 
+            name="course" 
+            @bind-Value="course.IsChecked" />
+        <label for="@course.Value">@course.Text</label>
+      </div>
+    }
+  </div>
+  <button class="btn btn-primary me-3">Register Student</button>
+  <NavLink class="btn btn-secondary" href="/">Cancel</NavLink>
+</EditForm>
+
+@code {
+  [Parameter]
+  public int StudentId { get; set; } 
+  private Student? student;
+  private List<Course> courses = [];
+  private bool registrationSuccess = false;
+  private string successMessage = "";
+  private class RegistrationModel ()
+  {
+    public List<CheckboxItem> Courses { get; set; } = [];
+  }
+
+  RegistrationModel registrationModel = new RegistrationModel();
+  private CustomValidation? customValidation;
+  protected override async Task OnInitializedAsync()
+  {
+    List<Student> students = [];
+
+    try 
+    {
+      student = await StudentData.Get(StudentId);
+      courses = await CourseData.GetAll();
+      student.Courses = await RegistrationData.GetCourses(StudentId); 
+
+      foreach (var course in courses)
+      {
+        registrationModel.Courses.Add(new CheckboxItem { 
+          Text = $"{course.Code} {course.Title} - {course.WeeklyHours} hours per week",
+          Value = course.Code,
+          IsChecked = student.Courses.Contains(course.Id)
+        });
+      }
+    } 
+    catch (InvalidOperationException)
+    {
+      Navigator.NavigateTo("/");
+    }
+  }
+
+  private async Task HandleSubmit()
+  {
+    customValidation?.ClearErrors();
+    var errors = new Dictionary<string, List<string>>();
+
+    List<Registration> selectedCourses = [];
+    foreach (var checkbox in registrationModel.Courses)
+    {
+      Course course = courses.FirstOrDefault(c => c.Code == checkbox.Value)!;
+
+      if (checkbox.IsChecked)
+      {
+        selectedCourses.Add(new Registration { StudentId = StudentId, CourseId = course.Id });
+      }
+    }
+    int totalCourses = selectedCourses.Count;
+    int totalHours = 0;
+    selectedCourses.ForEach(c => totalHours += courses.FirstOrDefault(course => course.Id == c.CourseId)!.WeeklyHours);
+   
+    switch (student!.Type)
+    {
+      case "Full Time":
+        if (totalHours > student.GetMaxWeeklyHours())
+        {
+          errors.Add(nameof(registrationModel.Courses), new () {$"Full-Time students can only register for a maximum {student.GetMaxWeeklyHours()} hours per week."});
+        }
+        break;
+      case "Part Time":
+        if (totalCourses > student.GetMaxNumOfCourses())
+        {
+          errors.Add(nameof(registrationModel.Courses), new () {$"Part-Time students can only register for a maximum of {student.GetMaxNumOfCourses()} courses."});
+        }
+        break;
+      case "Coop":
+        if (totalCourses > student.GetMaxNumOfCourses() || totalHours > student.GetMaxWeeklyHours())
+        {
+          errors.Add(nameof(registrationModel.Courses), new () {$"Coop students can only register for a maximum of {student.GetMaxNumOfCourses()} courses and a maximum of {student.GetMaxWeeklyHours()} hours per week."});
+        }
+        break;
+    }
+
+    if (errors.Any())
+    {
+        customValidation?.DisplayErrors(errors);
+    }
+    else
+    {
+      await RegisterStudent();
+      registrationSuccess = true;
+      successMessage = $"The student has been registered for {totalCourses} course(s), {totalHours} hours weekly.";
+    }
+  }
+
+  private async Task RegisterStudent()
+  {
+    List<Registration> selectedCourses = [];
+    foreach (var checkbox in registrationModel.Courses)
+    {
+      Course course = courses.FirstOrDefault(c => c.Code == checkbox.Value)!;
+
+      if (checkbox.IsChecked)
+      {
+        selectedCourses.Add(new Registration { StudentId = StudentId, CourseId = course.Id });
+      }
+    }
+
+    await RegistrationData.RegisterCourses(selectedCourses);
+  }
+}

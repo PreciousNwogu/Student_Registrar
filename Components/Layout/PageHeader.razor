@@ -1,0 +1,12 @@
+﻿<header class="py-5 d-flex justify-content-between align-items-center">
+  <h1 class="display-4">@Title</h1>
+  @ChildContent
+</header>
+
+@code {
+  [Parameter]
+  public string Title { get; set;} = "";
+
+  [Parameter]
+  public RenderFragment? ChildContent { get; set; }
+}

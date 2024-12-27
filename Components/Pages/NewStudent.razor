@@ -1,0 +1,51 @@
+﻿@page "/new-student"
+@rendermode InteractiveServer
+@inject NavigationManager Navigator
+@inject StudentDataAccess StudentData
+
+<PageTitle>New Student</PageTitle>
+<PageHeader Title="Add Student"></PageHeader>
+
+<EditForm 
+  class="p-5 bg-light border border-1" 
+  Model="Student" 
+  FormName="NewStudentForm"
+  OnValidSubmit="AddStudent">
+  <DataAnnotationsValidator />
+  <div class="form-group mb-3">
+    <label class="form-label">First Name</label>
+    <InputText class="form-control" @bind-Value="Student.FirstName" />
+    <ValidationMessage For="() => Student.FirstName" />
+  </div>
+  <div class="form-group mb-3">
+    <label class="form-label">Last Name</label>
+    <InputText class="form-control" @bind-Value="Student.LastName" />
+    <ValidationMessage For="() => Student.LastName" />
+  </div>
+  <div class="form-group mb-3">
+    <label class="form-label">Student Type</label>
+    <InputSelect class="form-select" @bind-Value="Student.Type">
+      <option value="">Select a Student Type</option>
+      @foreach (string studentType in Helper.GetStudentTypes()) 
+      {
+        <option value="@studentType">@studentType</option>
+      }
+    </InputSelect>
+    <ValidationMessage For="() => Student.Type" />
+  </div>
+  <button class="btn btn-primary me-3">Add Student</button>
+  <NavLink class="btn btn-secondary" href="/">Cancel</NavLink>
+</EditForm>
+
+@code {
+
+  [SupplyParameterFromForm]
+  private Student Student { get; set; } = new();
+  private async Task AddStudent ()
+  {
+    Student.Id = new Random().Next(100000, 1000000);
+    await StudentData.Store(Student);
+
+    Navigator.NavigateTo("/");
+  }
+}
